@@ -46,9 +46,9 @@ stages:
           echo "Listing available subscriptions..."
           az account list --output table
 
-          # Set the correct Azure subscription (optional as Service Connection handles this)
+          # Set the correct Azure subscription
           echo "Setting the correct subscription..."
-          az account set --subscription "$(AZURESUBSCRIPTIONID)"  # Use the correct Subscription ID if needed
+          az account set --subscription "$(AZURESUBSCRIPTIONID)"  # Use the correct Subscription ID
 
           # Allow dynamic installation of preview extensions (for Azure ML)
           echo "Allowing dynamic installation of preview extensions..."
