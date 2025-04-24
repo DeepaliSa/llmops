@@ -3,11 +3,9 @@ trigger:
     include:
       - main
 
-# Link to the variable group containing secrets
+# Link to your secret and standard variables
 variables:
 - group: llm-deploy-vars
-
-# Static pipeline variables
 - name: azureSubscription
   value: 'Pay-As-You-Go'
 - name: resourceGroup
@@ -31,20 +29,25 @@ stages:
         versionSpec: '3.9'
 
     - script: |
-        python -m pip install --upgrade pip
-        pip install azure-ai-ml azure-identity
-      displayName: 'Install Azure ML SDK'
-
-    - script: |
-        az login --service-principal -u $(servicePrincipalId) -p $(servicePrincipalKey) --tenant $(tenantId)
+        # Login using Service Principal
+        az login --service-principal -u $SERVICEPRINCIPALID -p $SERVICEPRINCIPALKEY --tenant $TENANTID
+        
+        # Allow dynamic installation of preview extensions
+        az config set extension.dynamic_install_allow_preview=true
+        
+        # Set the Azure subscription
+        az account set --subscription "$AZURESUBSCRIPTION"
+        
+        # Deploy the model to Azure ML
         az ml online-endpoint create --file endpoint.yml \
-          --workspace-name $(workspaceName) --resource-group $(resourceGroup)
+          --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP
       displayName: 'Deploy Model to Azure ML'
 
     - script: |
+        # Test LLM Endpoint
         az ml online-endpoint invoke \
-          --name $(endpointName) \
+          --name $ENDPOINTNAME \
           --request-file request.json \
-          --workspace-name $(workspaceName) \
-          --resource-group $(resourceGroup)
+          --workspace-name $WORKSPACENAME \
+          --resource-group $RESOURCEGROUP
       displayName: 'Test LLM Endpoint'
