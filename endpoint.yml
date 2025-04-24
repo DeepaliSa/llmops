@@ -1,0 +1,15 @@
+name: stability-endpoint
+auth_mode: key
+traffic:
+  blue: 100
+
+deployments:
+  - name: blue
+    code_configuration:
+      code: .
+      scoring_script: score.py
+    environment: azureml:stability-env@latest
+    instance_type: Standard_NC6  # GPU required
+    instance_count: 1
+    environment_variables:
+      HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
