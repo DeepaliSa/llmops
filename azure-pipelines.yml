@@ -5,9 +5,9 @@ trigger:
 
 # Link to your secret and standard variables
 variables:
-- group: llm-deploy-vars
+- group: llm-deploy-vars  # Ensure this variable group is created and includes the correct values
 - name: azureSubscription
-  value: 'de3c9b28-1bdf-4863-a195-9a50adbcced8'
+  value: 'mymlops'  # This should be your Azure DevOps service connection name
 - name: resourceGroup
   value: 'mlops'
 - name: workspaceName
@@ -24,27 +24,37 @@ stages:
     steps:
     - checkout: self
 
+    # Use Python Version 3.9 for the pipeline
     - task: UsePythonVersion@0
       inputs:
         versionSpec: '3.9'
 
+    # Install Azure ML SDK
     - script: |
-        # Login using Service Principal
-        az login --service-principal -u $SERVICEPRINCIPALID -p $SERVICEPRINCIPALKEY --tenant $TENANTID
-        
-        # Allow dynamic installation of preview extensions
-        az config set extension.dynamic_install_allow_preview=true
-        
-        # Set the Azure subscription
-        az account set --subscription "$AZURESUBSCRIPTION"
-        
-        # Deploy the model to Azure ML
-        az ml online-endpoint create --file endpoint.yml \
-          --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP
+        python -m pip install --upgrade pip
+        pip install azure-ai-ml azure-identity
+      displayName: 'Install Azure ML SDK'
+
+    # Deploy model to Azure ML
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(azureSubscription)  # Use the service connection from Azure DevOps
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          # Allow dynamic installation of preview extensions
+          az config set extension.dynamic_install_allow_preview=true
+          
+          # Install the Azure ML CLI extension (if needed)
+          az extension add --name azure-cli-ml
+
+          # Deploy the model to Azure ML
+          az ml online-endpoint create --file endpoint.yml \
+            --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP
       displayName: 'Deploy Model to Azure ML'
 
+    # Test the deployed model endpoint
     - script: |
-        # Test LLM Endpoint
         az ml online-endpoint invoke \
           --name $ENDPOINTNAME \
           --request-file request.json \
