@@ -3,11 +3,19 @@ trigger:
     include:
       - main
 
+# Link to the variable group containing secrets
 variables:
-  azureSubscription: 'your-azure-devops-service-connection'
-  resourceGroup: 'your-resource-group'
-  workspaceName: 'your-workspace'
-  endpointName: 'stability-endpoint'
+- group: llm-deploy-vars
+
+# Static pipeline variables
+- name: azureSubscription
+  value: 'Pay-As-You-Go'
+- name: resourceGroup
+  value: 'mlops'
+- name: workspaceName
+  value: 'llm_mlops'
+- name: endpointName
+  value: 'stability-endpoint'
 
 stages:
 - stage: Deploy
@@ -25,7 +33,7 @@ stages:
     - script: |
         python -m pip install --upgrade pip
         pip install azure-ai-ml azure-identity
-      displayName: 'Install SDK'
+      displayName: 'Install Azure ML SDK'
 
     - script: |
         az login --service-principal -u $(servicePrincipalId) -p $(servicePrincipalKey) --tenant $(tenantId)
