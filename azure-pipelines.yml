@@ -42,29 +42,32 @@ stages:
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-          # Login to Azure using Service Principal (this should be handled by service connection)
-          az login --service-principal -u $SERVICEPRINCIPALID -p $SERVICEPRINCIPALKEY --tenant $TENANTID
-          
-          # Allow dynamic installation of preview extensions
+          # List subscriptions available to the Service Principal
+          echo "Listing available subscriptions..."
+          az account list --output table
+
+          # Set the correct Azure subscription (optional as Service Connection handles this)
+          echo "Setting the correct subscription..."
+          az account set --subscription "$(AZURESUBSCRIPTIONID)"  # Use the correct Subscription ID if needed
+
+          # Allow dynamic installation of preview extensions (for Azure ML)
+          echo "Allowing dynamic installation of preview extensions..."
           az config set extension.dynamic_install_allow_preview=true
-          
+
           # Install the Azure ML CLI extension (if not already installed)
+          echo "Installing Azure ML CLI extension..."
           az extension add --name azure-cli-ml
 
-          # Set the correct Azure subscription using the Subscription ID
-          az account set --subscription "$(AZURESUBSCRIPTIONID)"  # Use the correct Subscription ID
-
           # Deploy the model to Azure ML
+          echo "Deploying model to Azure ML..."
           az ml online-endpoint create --file endpoint.yml \
             --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP
-      displayName: 'Deploy Model to Azure ML'
 
-    # Test the deployed model endpoint
-    - script: |
-        # Test the deployed model endpoint by sending a request
-        az ml online-endpoint invoke \
-          --name $ENDPOINTNAME \
-          --request-file request.json \
-          --workspace-name $WORKSPACENAME \
-          --resource-group $RESOURCEGROUP
-      displayName: 'Test LLM Endpoint'
+          # Test the LLM endpoint
+          echo "Testing the LLM endpoint..."
+          az ml online-endpoint invoke \
+            --name $ENDPOINTNAME \
+            --request-file request.json \
+            --workspace-name $WORKSPACENAME \
+            --resource-group $RESOURCEGROUP
+      displayName: 'Deploy and Test Model to Azure ML'
