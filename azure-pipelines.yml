@@ -3,7 +3,6 @@ trigger:
     include:
       - main
 
-# Link to your secret and standard variables
 variables:
 - group: llm-deploy-vars  # Ensure this variable group is created and includes the correct values
 - name: azureSubscription
@@ -22,59 +21,59 @@ stages:
     pool:
       vmImage: 'ubuntu-latest'
     steps:
-      - checkout: self
+    - checkout: self
 
-      # Use Python Version 3.9 for the pipeline
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '3.9'
+    # Use Python Version 3.9 for the pipeline
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.9'
 
-      # Install Azure ML SDK
-      - script: |
-          python -m pip install --upgrade pip
-          pip install azure-ai-ml azure-identity
-        displayName: 'Install Azure ML SDK'
+    # Install Azure ML SDK
+    - script: |
+        python -m pip install --upgrade pip
+        pip install azure-ai-ml azure-identity
+      displayName: 'Install Azure ML SDK'
 
-      # Deploy model to Azure ML
-      - task: AzureCLI@2
-        inputs:
-          azureSubscription: $(azureSubscription)  # Use the Azure Service Connection from Azure DevOps
-          scriptType: bash
-          scriptLocation: inlineScript
-          inlineScript: |
-            # Remove the conflicting extension 'azure-cli-ml' (if it exists)
-            echo "Removing the conflicting 'azure-cli-ml' extension..."
-            az extension remove --name azure-cli-ml || true  # Ignore error if not installed
+    # Deploy model to Azure ML
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(azureSubscription)  # Use the Azure Service Connection from Azure DevOps
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          # Debugging: Print current Azure account information
+          echo "Listing available subscriptions..."
+          az account list --output table
 
-            # List available subscriptions to verify the active one
-            echo "Listing available subscriptions..."
-            az account list --output table
+          # Check the currently active subscription
+          echo "Checking the current subscription..."
+          az account show
 
-            # Verify the currently active subscription for debugging
-            echo "Current subscription:"
-            az account show
+          # Set the correct Azure subscription using the Service Principal
+          echo "Setting the correct subscription..."
+          az account set --subscription "$(AZURESUBSCRIPTIONID)"  # Ensure this variable is correctly set
 
-            # Set the correct Azure subscription (only if required, usually handled by Service Connection)
-            echo "Setting the correct subscription..."
-            az account set --subscription "$(AZURESUBSCRIPTIONID)"  # Ensure this variable is set
+          # Allow dynamic installation of preview extensions (for Azure ML)
+          echo "Allowing dynamic installation of preview extensions..."
+          az config set extension.dynamic_install_allow_preview=true
 
-            # Allow dynamic installation of preview extensions (for Azure ML)
-            echo "Allowing dynamic installation of preview extensions..."
-            az config set extension.dynamic_install_allow_preview=true
+          # Remove the conflicting 'azure-cli-ml' extension if present
+          echo "Removing the conflicting 'azure-cli-ml' extension..."
+          az extension remove --name azure-cli-ml || true  # Ignore error if not installed
 
-            # Install the Azure ML CLI extension (if not already installed)
-            echo "Installing Azure ML CLI extension..."
-            az extension add --name ml
+          # Install the Azure ML CLI extension (if not already installed)
+          echo "Installing Azure ML CLI extension..."
+          az extension add --name ml
 
-            # Create the Online Endpoint if it doesn't exist (ensure endpoint.yml is correctly defined)
-            echo "Creating the online endpoint..."
-            az ml online-endpoint create --name stability-endpoint --file endpoint.yml --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP
+          # Create the Online Endpoint if it doesn't exist
+          echo "Creating the online endpoint..."
+          az ml online-endpoint create --name stability-endpoint --file endpoint.yml --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP
 
-            # Test the LLM endpoint
-            echo "Testing the LLM endpoint..."
-            az ml online-endpoint invoke \
-              --name $ENDPOINTNAME \
-              --request-file request.json \
-              --workspace-name $WORKSPACENAME \
-              --resource-group $RESOURCEGROUP
-        displayName: 'Deploy and Test Model to Azure ML'
+          # Test the LLM endpoint
+          echo "Testing the LLM endpoint..."
+          az ml online-endpoint invoke \
+            --name $ENDPOINTNAME \
+            --request-file request.json \
+            --workspace-name $WORKSPACENAME \
+            --resource-group $RESOURCEGROUP
+      displayName: 'Deploy and Test Model to Azure ML'
