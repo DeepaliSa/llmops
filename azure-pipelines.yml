@@ -7,7 +7,7 @@ trigger:
 variables:
 - group: llm-deploy-vars  # Ensure this variable group is created and includes the correct values
 - name: azureSubscription
-  value: 'mymlops'  # This should be your Azure DevOps service connection name
+  value: 'mymlops'  # The name of your Azure Service Connection in Azure DevOps
 - name: resourceGroup
   value: 'mlops'
 - name: workspaceName
@@ -38,15 +38,21 @@ stages:
     # Deploy model to Azure ML
     - task: AzureCLI@2
       inputs:
-        azureSubscription: $(azureSubscription)  # Use the service connection from Azure DevOps
+        azureSubscription: $(azureSubscription)  # Use the Azure Service Connection from Azure DevOps
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
+          # Login to Azure using Service Principal (this should be handled by service connection)
+          az login --service-principal -u $SERVICEPRINCIPALID -p $SERVICEPRINCIPALKEY --tenant $TENANTID
+          
           # Allow dynamic installation of preview extensions
           az config set extension.dynamic_install_allow_preview=true
           
-          # Install the Azure ML CLI extension (if needed)
+          # Install the Azure ML CLI extension (if not already installed)
           az extension add --name azure-cli-ml
+
+          # Set the correct Azure subscription using the Subscription ID
+          az account set --subscription "$(AZURESUBSCRIPTIONID)"  # Use the correct Subscription ID
 
           # Deploy the model to Azure ML
           az ml online-endpoint create --file endpoint.yml \
@@ -55,6 +61,7 @@ stages:
 
     # Test the deployed model endpoint
     - script: |
+        # Test the deployed model endpoint by sending a request
         az ml online-endpoint invoke \
           --name $ENDPOINTNAME \
           --request-file request.json \
