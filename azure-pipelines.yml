@@ -1,0 +1,42 @@
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  azureSubscription: 'your-azure-devops-service-connection'
+  resourceGroup: 'your-resource-group'
+  workspaceName: 'your-workspace'
+  endpointName: 'stability-endpoint'
+
+stages:
+- stage: Deploy
+  jobs:
+  - job: DeployModel
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.9'
+
+    - script: |
+        python -m pip install --upgrade pip
+        pip install azure-ai-ml azure-identity
+      displayName: 'Install SDK'
+
+    - script: |
+        az login --service-principal -u $(servicePrincipalId) -p $(servicePrincipalKey) --tenant $(tenantId)
+        az ml online-endpoint create --file endpoint.yml \
+          --workspace-name $(workspaceName) --resource-group $(resourceGroup)
+      displayName: 'Deploy Model to Azure ML'
+
+    - script: |
+        az ml online-endpoint invoke \
+          --name $(endpointName) \
+          --request-file request.json \
+          --workspace-name $(workspaceName) \
+          --resource-group $(resourceGroup)
+      displayName: 'Test LLM Endpoint'
