@@ -7,7 +7,7 @@ trigger:
 variables:
 - group: llm-deploy-vars
 - name: azureSubscription
-  value: 'Pay-As-You-Go'
+  value: 'de3c9b28-1bdf-4863-a195-9a50adbcced8'
 - name: resourceGroup
   value: 'mlops'
 - name: workspaceName
