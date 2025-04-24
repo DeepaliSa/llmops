@@ -62,8 +62,13 @@ stages:
             az extension add --name ml
 
             # Create the Online Endpoint if it doesn't exist
-            echo "Creating the online endpoint..."
-            az ml online-endpoint create --name stability-endpoint --file endpoint.yml --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP
+            echo "Checking if the online endpoint exists..."
+            if ! az ml online-endpoint show --name stability-endpoint --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP; then
+              echo "Creating the online endpoint..."
+              az ml online-endpoint create --name stability-endpoint --file endpoint.yml --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP
+            else
+              echo "Online endpoint already exists. Skipping creation."
+            fi
 
             # Test the LLM endpoint
             echo "Testing the LLM endpoint..."
