@@ -2,17 +2,18 @@ trigger:
   branches:
     include:
       - main
-
 variables:
-- group: llm-deploy-vars  # Ensure this variable group is created and includes the correct values
+- group: llm-deploy-vars
 - name: azureSubscription
-  value: 'mymlops'  # The name of your Azure Service Connection in Azure DevOps
+  value: 'mymlops'
 - name: resourceGroup
   value: 'mlops'
 - name: workspaceName
   value: 'llm_mlops'
 - name: endpointName
   value: 'stability-endpoint'
+- name: deploymentName
+  value: 'stability-deployment'
 
 stages:
 - stage: Deploy
@@ -22,59 +23,75 @@ stages:
       vmImage: 'ubuntu-latest'
     steps:
       - checkout: self
-
-      # Use Python Version 3.9 for the pipeline
+      
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '3.9'
-
-      # Install Azure ML SDK
+        
       - script: |
           python -m pip install --upgrade pip
           pip install azure-ai-ml azure-identity
         displayName: 'Install Azure ML SDK'
-
-      # Deploy model to Azure ML
+      
       - task: AzureCLI@2
         inputs:
-          azureSubscription: $(azureSubscription)  # Use the Azure Service Connection from Azure DevOps
+          azureSubscription: $(azureSubscription)
           scriptType: bash
           scriptLocation: inlineScript
           inlineScript: |
-            # Debugging: List available subscriptions to verify the active one
+            # Debugging: List available subscriptions
             echo "Listing available subscriptions..."
             az account list --output table
-
-            # Check the currently active subscription for debugging
+            
+            # Current subscription
             echo "Current subscription:"
             az account show
-
-            # Allow dynamic installation of preview extensions (for Azure ML)
+            
+            # Allow dynamic installation of preview extensions
             echo "Allowing dynamic installation of preview extensions..."
             az config set extension.dynamic_install_allow_preview=true
-
-            # Remove the conflicting 'azure-cli-ml' extension if present
-            echo "Removing the conflicting 'azure-cli-ml' extension..."
-            az extension remove --name azure-cli-ml || true  # Ignore error if not installed
-
-            # Install the Azure ML CLI extension (if not already installed)
+            
+            # Remove conflicting extension if present
+            echo "Removing conflicting 'azure-cli-ml' extension..."
+            az extension remove --name azure-cli-ml || true
+            
+            # Install Azure ML CLI extension
             echo "Installing Azure ML CLI extension..."
             az extension add --name ml
-
+            
             # Create the Online Endpoint if it doesn't exist
-            echo "Checking if the online endpoint exists..."
-            if ! az ml online-endpoint show --name stability-endpoint --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP; then
+            echo "Creating/checking online endpoint..."
+            if ! az ml online-endpoint show --name $(endpointName) --workspace-name $(workspaceName) --resource-group $(resourceGroup); then
               echo "Creating the online endpoint..."
-              az ml online-endpoint create --name stability-endpoint --file endpoint.yml --workspace-name $WORKSPACENAME --resource-group $RESOURCEGROUP
+              az ml online-endpoint create --name $(endpointName) --file endpoint.yml --workspace-name $(workspaceName) --resource-group $(resourceGroup)
             else
-              echo "Online endpoint already exists. Skipping creation."
+              echo "Online endpoint already exists."
             fi
-
+            
+            # Create or update the deployment
+            echo "Creating/updating model deployment..."
+            az ml online-deployment create \
+              --name $(deploymentName) \
+              --endpoint $(endpointName) \
+              --file env.yaml \
+              --workspace-name $(workspaceName) \
+              --resource-group $(resourceGroup) \
+              --all-traffic
+            
+            # Wait for deployment to be ready
+            echo "Waiting for deployment to be ready..."
+            az ml online-endpoint wait-for-deployment \
+              --name $(endpointName) \
+              --deployment $(deploymentName) \
+              --workspace-name $(workspaceName) \
+              --resource-group $(resourceGroup) \
+              --show-output true
+            
             # Test the LLM endpoint
             echo "Testing the LLM endpoint..."
             az ml online-endpoint invoke \
-              --name $ENDPOINTNAME \
+              --name $(endpointName) \
               --request-file request.json \
-              --workspace-name $WORKSPACENAME \
-              --resource-group $RESOURCEGROUP
+              --workspace-name $(workspaceName) \
+              --resource-group $(resourceGroup)
         displayName: 'Deploy and Test Model to Azure ML'
