@@ -1,15 +1,15 @@
-name: stability-endpoint
-auth_mode: key
-traffic:
-  blue: 100
-
-deployments:
-  - name: blue
-    code_configuration:
-      code: .
-      scoring_script: score.py
-    environment: azureml:stability-env@latest
-    instance_type: Standard_NC6  # GPU required
-    instance_count: 1
-    environment_variables:
-      HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
+# In your AzureCLI task
+inlineScript: |
+  # Create or update the endpoint
+  az ml online-endpoint create --name $(endpointName) --file endpoint.yml --workspace-name $(workspaceName) --resource-group $(resourceGroup) --set environment_variables.HUGGINGFACE_TOKEN=$(HUGGINGFACE_TOKEN)
+  
+  # Create or update the deployment if using a separate deployment file
+  # If using the deployment in endpoint.yml, skip this step
+  az ml online-deployment create \
+    --name blue \
+    --endpoint $(endpointName) \
+    --file env.yaml \
+    --workspace-name $(workspaceName) \
+    --resource-group $(resourceGroup) \
+    --set environment_variables.HUGGINGFACE_TOKEN=$(HUGGINGFACE_TOKEN) \
+    --all-traffic
