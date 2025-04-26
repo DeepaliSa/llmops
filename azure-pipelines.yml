@@ -5,11 +5,11 @@ trigger:
 variables:
 - group: llm-deploy-vars
 - name: azureSubscription
-  value: 'mymlops'
+  value: 'test'
 - name: resourceGroup
   value: 'mlops'
 - name: workspaceName
-  value: 'llm_mlops'
+  value: 'llm_mlop'
 - name: endpointName
   value: 'stability-endpoint'
 - name: deploymentName
